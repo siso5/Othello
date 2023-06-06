@@ -282,7 +282,7 @@ void aiTurn(int simulations) {
 
     board[row][col] = WHITE;
     flipStones(row, col, WHITE);
-    ("AI's move board[row col]: %d, %d\n", row + 1, col + 1);
+    printf("AI's move board[row col]: %d %d\n", row + 1, col + 1);
 }
 
 // Plays the game
@@ -290,9 +290,18 @@ void playGame(int simulations) {
     initializeBoard();
     printBoard();
 
-    while (true) {
-        // User's turn
-        userTurn();
+    int currentPlayer = BLACK;
+    bool validMovesExist = true;
+
+    while (validMovesExist) {
+        if (currentPlayer == BLACK) {
+            // User's turn
+            userTurn();
+        } else {
+            // AI's turn
+            aiTurn(simulations);
+        }
+
         printBoard();
 
         // Count the stones
@@ -300,14 +309,26 @@ void playGame(int simulations) {
         countStones(&blackCount, &whiteCount);
         printf("Black: %d, White: %d\n", blackCount, whiteCount);
 
-        // AI's turn
-        aiTurn(simulations);
-        printBoard();
+        currentPlayer = switchPlayer(currentPlayer);
 
-        // Count the stones
-        countStones(&blackCount, &whiteCount);
-        printf("Black: %d, White: %d\n", blackCount, whiteCount);
+        // Check if valid moves exist for the current player
+        validMovesExist = false;
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+                if (isValidMove(row, col, currentPlayer)) {
+                    validMovesExist = true;
+                    break;
+                }
+            }
+            if (validMovesExist)
+                break;
+        }
     }
+
+    // Game over, print the result
+    int blackCount, whiteCount;
+    countStones(&blackCount, &whiteCount);
+    printResult(blackCount, whiteCount);
 }
 
 // Prints the result of the game
