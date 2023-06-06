@@ -7,10 +7,23 @@
 #define BLACK 1
 #define WHITE 2
 
-// オセロ盤面
+// Othello board
 int board[BOARD_SIZE][BOARD_SIZE];
 
-// 初期化
+// Function prototypes
+void initializeBoard();
+void printBoard();
+bool isValidMove(int row, int col, int player);
+void flipStones(int row, int col, int player);
+void countStones(int* blackCount, int* whiteCount);
+void userTurn();
+int monteCarloSearch(int player, int simulations);
+void aiTurn(int simulations);
+void playGame(int simulations);
+void printResult(int blackCount, int whiteCount);
+int switchPlayer(int currentPlayer);
+
+// Initializes the board
 void initializeBoard() {
     for (int i = 0; i < BOARD_SIZE; i++) {
         for (int j = 0; j < BOARD_SIZE; j++) {
@@ -18,14 +31,14 @@ void initializeBoard() {
         }
     }
 
-    // 初期配置
+    // Initial configuration
     board[3][3] = WHITE;
     board[3][4] = BLACK;
     board[4][3] = BLACK;
     board[4][4] = WHITE;
 }
 
-// 盤面の表示
+// Prints the board
 void printBoard() {
     printf("  1 2 3 4 5 6 7 8\n");
     for (int i = 0; i < BOARD_SIZE; i++) {
@@ -42,190 +55,87 @@ void printBoard() {
     }
 }
 
-// 有効な手の判定
+// Checks if a move is valid
 bool isValidMove(int row, int col, int player) {
     if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE || board[row][col] != EMPTY)
         return false;
 
     int opponent = (player == BLACK) ? WHITE : BLACK;
 
-    // 上方向
-    if (row > 0 && board[row - 1][col] == opponent) {
-        for (int i = row - 2; i >= 0; i--) {
-            if (board[i][col] == player)
-                return true;
-            if (board[i][col] != opponent)
-                break;
-        }
-    }
+    // Check in all eight directions for possible flips
+    int directions[8][2] = {
+        {-1, 0}, {-1, 1}, {0, 1}, {1, 1},
+        {1, 0}, {1, -1}, {0, -1}, {-1, -1}
+    };
 
-    // 下方向
-    if (row < BOARD_SIZE - 1 && board[row + 1][col] == opponent) {
-        for (int i = row + 2; i < BOARD_SIZE; i++) {
-            if (board[i][col] == player)
-                return true;
-            if (board[i][col] != opponent)
-                break;
-        }
-    }
+    for (int i = 0; i < 8; i++) {
+        int dirX = directions[i][0];
+        int dirY = directions[i][1];
+        int r = row + dirX;
+        int c = col + dirY;
 
-    // 左方向
-    if (col > 0 && board[row][col - 1] == opponent) {
-        for (int j = col - 2; j >= 0; j--) {
-            if (board[row][j] == player)
-                return true;
-            if (board[row][j] != opponent)
+        bool isValid = false;
+        while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) {
+            if (board[r][c] == opponent) {
+                r += dirX;
+                c += dirY;
+            } else if (board[r][c] == player) {
+                isValid = true;
                 break;
+            } else {
+                break;
+            }
         }
-    }
 
-    // 右方向
-    if (col < BOARD_SIZE - 1 && board[row][col + 1] == opponent) {
-        for (int j = col + 2; j < BOARD_SIZE; j++) {
-            if (board[row][j] == player)
-                return true;
-            if (board[row][j] != opponent)
-                break;
-        }
-    }
-
-    // 左上方向
-    if (row > 0 && col > 0 && board[row - 1][col - 1] == opponent) {
-        for (int i = row - 2, j = col - 2; i >= 0 && j >= 0; i--, j--) {
-            if (board[i][j] == player)
-                return true;
-            if (board[i][j] != opponent)
-                break;
-        }
-    }
-
-    // 右上方向
-    if (row > 0 && col < BOARD_SIZE - 1 && board[row - 1][col + 1] == opponent) {
-        for (int i = row - 2, j = col + 2; i >= 0 && j < BOARD_SIZE; i--, j++) {
-            if (board[i][j] == player)
-                return true;
-            if (board[i][j] != opponent)
-                break;
-        }
-    }
-
-    // 左下方向
-    if (row < BOARD_SIZE - 1 && col > 0 && board[row + 1][col - 1] == opponent) {
-        for (int i = row + 2, j = col - 2; i < BOARD_SIZE && j >= 0; i++, j--) {
-            if (board[i][j] == player)
-                return true;
-            if (board[i][j] != opponent)
-                break;
-        }
-    }
-
-    // 右下方向
-    if (row < BOARD_SIZE - 1 && col < BOARD_SIZE - 1 && board[row + 1][col + 1] == opponent) {
-        for (int i = row + 2, j = col + 2; i < BOARD_SIZE && j < BOARD_SIZE; i++, j++) {
-            if (board[i][j] == player)
-                return true;
-            if (board[i][j] != opponent)
-                break;
-        }
+        if (isValid)
+            return true;
     }
 
     return false;
 }
 
-// 石を反転させる
+// Flips the opponent's stones
 void flipStones(int row, int col, int player) {
     int opponent = (player == BLACK) ? WHITE : BLACK;
 
-    // 上方向
-    for (int i = row - 1; i >= 0; i--) {
-        if (board[i][col] == EMPTY)
-            break;
-        if (board[i][col] == player) {
-            for (int j = row - 1; j > i; j--)
-                board[j][col] = player;
-            break;
-        }
-    }
+    // Check in all eight directions for possible flips
+    int directions[8][2] = {
+        {-1, 0}, {-1, 1}, {0, 1}, {1, 1},
+        {1, 0}, {1, -1}, {0, -1}, {-1, -1}
+    };
 
-    // 下方向
-    for (int i = row + 1; i < BOARD_SIZE; i++) {
-        if (board[i][col] == EMPTY)
-            break;
-        if (board[i][col] == player) {
-            for (int j = row + 1; j < i; j++)
-                board[j][col] = player;
-            break;
-        }
-    }
+    for (int i = 0; i < 8; i++) {
+        int dirX = directions[i][0];
+        int dirY = directions[i][1];
+        int r = row + dirX;
+        int c = col + dirY;
 
-    // 左方向
-    for (int j = col - 1; j >= 0; j--) {
-        if (board[row][j] == EMPTY)
-            break;
-        if (board[row][j] == player) {
-            for (int k = col - 1; k > j; k--)
-                board[row][k] = player;
-            break;
+        bool isValid = false;
+        while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) {
+            if (board[r][c] == opponent) {
+                r += dirX;
+                c += dirY;
+            } else if (board[r][c] == player) {
+                isValid = true;
+                break;
+            } else {
+                break;
+            }
         }
-    }
 
-    // 右方向
-    for (int j = col + 1; j < BOARD_SIZE; j++) {
-        if (board[row][j] == EMPTY)
-            break;
-        if (board[row][j] == player) {
-            for (int k = col + 1; k < j; k++)
-                board[row][k] = player;
-            break;
-        }
-    }
-
-    // 左上方向
-    for (int i = row - 1, j = col - 1; i >= 0 && j >= 0; i--, j--) {
-        if (board[i][j] == EMPTY)
-            break;
-        if (board[i][j] == player) {
-            for (int k = row - 1, l = col - 1; k > i && l > j; k--, l--)
-                board[k][l] = player;
-            break;
-        }
-    }
-
-    // 右上方向
-    for (int i = row - 1, j = col + 1; i >= 0 && j < BOARD_SIZE; i--, j++) {
-        if (board[i][j] == EMPTY)
-            break;
-        if (board[i][j] == player) {
-            for (int k = row - 1, l = col + 1; k > i && l < j; k--, l++)
-                board[k][l] = player;
-            break;
-        }
-    }
-
-    // 左下方向
-    for (int i = row + 1, j = col - 1; i < BOARD_SIZE && j >= 0; i++, j--) {
-        if (board[i][j] == EMPTY)
-            break;
-        if (board[i][j] == player) {
-            for (int k = row + 1, l = col - 1; k < i && l > j; k++, l--)
-                board[k][l] = player;
-            break;
-        }
-    }
-
-    // 右下方向
-    for (int i = row + 1, j = col + 1; i < BOARD_SIZE && j < BOARD_SIZE; i++, j++) {
-        if (board[i][j] == EMPTY)
-            break;
-        if (board[i][j] == player) {
-            for (int k = row + 1, l = col + 1; k < i && l < j; k++, l++)
-                board[k][l] = player;
-            break;
+        if (isValid) {
+            r -= dirX;
+            c -= dirY;
+            while (r != row || c != col) {
+                board[r][c] = player;
+                r -= dirX;
+                c -= dirY;
+            }
         }
     }
 }
 
-// 石の数をカウント
+// Counts the number of stones
 void countStones(int* blackCount, int* whiteCount) {
     *blackCount = 0;
     *whiteCount = 0;
@@ -239,55 +149,73 @@ void countStones(int* blackCount, int* whiteCount) {
     }
 }
 
-
-// ユーザーの手番
+// Handles the user's turn
 void userTurn() {
     int row, col;
-    char input[10]; // 入力値を一時的に保存するための配列
+    char input[10]; // Temporary storage for input value
 
     while (true) {
         printf("Your move (row col): ");
         if (fgets(input, sizeof(input), stdin) == NULL) {
-            // 入力が正しくない場合は再入力を促す
+            // Prompt for re-entering if input is invalid
             printf("Invalid input. Please enter row and column numbers.\n");
             continue;
         }
 
         if (sscanf(input, "%d%d", &row, &col) != 2) {
-            // 入力が正しくない場合は再入力を促す
+            // Prompt for re-entering if input is invalid
             printf("Invalid input. Please enter row and column numbers.\n");
             continue;
         }
 
         if (row < 1 || row > BOARD_SIZE || col < 1 || col > BOARD_SIZE) {
-            // 入力が範囲外の場合は再入力を促す
+            // Prompt for re-entering if input is out of range
             printf("Invalid move. Please enter row and column numbers within the board range.\n");
             continue;
         }
 
-        // 入力値をインデックスに変換
+        // Convert input values to indices
         row--;
         col--;
 
         if (!isValidMove(row, col, BLACK)) {
-            // 有効な手でない場合は再入力を促す
+            // Prompt for re-entering if the move is invalid
             printf("Invalid move. Please enter a valid move.\n");
             continue;
         }
 
-        break;  // 入力が正しい場合はループを終了
+        break;  // Exit the loop if input is valid
     }
 
     board[row][col] = BLACK;
     flipStones(row, col, BLACK);
 }
 
-// AIのモンテカルロ木探索
+// Performs Monte Carlo tree search for the AI's turn
 int monteCarloSearch(int player, int simulations) {
-    int scores[BOARD_SIZE][BOARD_SIZE] = {0}; // 各手のスコア
+    int scores[BOARD_SIZE][BOARD_SIZE] = {0}; // Scores for each move
 
+    // Check if valid moves exist
+    bool validMovesExist = false;
+    for (int row = 0; row < BOARD_SIZE; row++) {
+        for (int col = 0; col < BOARD_SIZE; col++) {
+            if (isValidMove(row, col, player)) {
+                validMovesExist = true;
+                break;
+            }
+        }
+        if (validMovesExist)
+            break;
+    }
+
+    if (!validMovesExist) {
+        // If no valid moves exist, end the game
+        return -1;
+    }
+
+    // If valid moves exist, perform the search
     for (int i = 0; i < simulations; i++) {
-        // ゲームを複製する
+        // Create a copy of the game board
         int boardCopy[BOARD_SIZE][BOARD_SIZE];
         for (int row = 0; row < BOARD_SIZE; row++) {
             for (int col = 0; col < BOARD_SIZE; col++) {
@@ -297,28 +225,28 @@ int monteCarloSearch(int player, int simulations) {
 
         int row, col;
         while (true) {
-            // ランダムな手を選択
+            // Select a random move
             row = rand() % BOARD_SIZE;
             col = rand() % BOARD_SIZE;
 
             if (isValidMove(row, col, player))
-                break; // 有効な手の場合はループを終了
+                break; // Exit the loop if the move is valid
         }
 
-        // 手を適用
+        // Apply the move
         boardCopy[row][col] = player;
         flipStones(row, col, player);
 
-        // シミュレーションの結果を評価
+        // Evaluate the result of the simulation
         int blackCount, whiteCount;
         countStones(&blackCount, &whiteCount);
         int score = (player == BLACK) ? blackCount - whiteCount : whiteCount - blackCount;
 
-        // スコアを更新
+        // Update the scores
         scores[row][col] += score;
     }
 
-    // スコアが最も高い手を選択
+    // Select the move with the highest score
     int bestScore = -10000;
     int bestRow = -1, bestCol = -1;
 
@@ -332,75 +260,76 @@ int monteCarloSearch(int player, int simulations) {
         }
     }
 
-    return (bestRow + 1) * 10 + (bestCol + 1); // 行と列を1つの数値にエンコードして返す
+    return bestRow * BOARD_SIZE + bestCol; // Encode the row and column into a single value
 }
 
-// ゲームの進行
-void playGame(int simulations) {
-    int currentPlayer = BLACK;
-    bool gameEnd = false;
+// Handles the AI's turn
+void aiTurn(int simulations) {
+    int move = monteCarloSearch(WHITE, simulations);
 
-    while (!gameEnd) {
-        printBoard();
-
-        if (currentPlayer == BLACK) {
-            printf("Black's turn.\n");
-            userTurn();
-        } else {
-            printf("White's turn.\n");
-            int move = monteCarloSearch(WHITE, simulations);
-            int row = move / 10;
-            int col = move % 10;
-            printf("AI's move: %d %d\n", row, col);
-            board[row - 1][col - 1] = WHITE;
-            flipStones(row - 1, col - 1, WHITE);
-        }
-
-        // ゲーム終了の判定
-        bool blackMoves = false, whiteMoves = false;
-        for (int i = 0; i < BOARD_SIZE; i++) {
-            for (int j = 0; j < BOARD_SIZE; j++) {
-                if (board[i][j] == EMPTY && isValidMove(i, j, BLACK))
-                    blackMoves = true;
-                if (board[i][j] == EMPTY && isValidMove(i, j, WHITE))
-                    whiteMoves = true;
-            }
-        }
-
-        if (!blackMoves && !whiteMoves) {
-            printf("Game Over\n");
-            gameEnd = true;
-        } else if (!blackMoves) {
-            printf("Black has no moves. White wins!\n");
-            gameEnd = true;
-        } else if (!whiteMoves) {
-            printf("White has no moves. Black wins!\n");
-            gameEnd = true;
-        }
-
-        // 手番を交代
-        currentPlayer = (currentPlayer == BLACK) ? WHITE : BLACK;
+    if (move == -1) {
+        printf("AI has no valid moves.\n");
+        return;
     }
 
+    int row = move / BOARD_SIZE;
+    int col = move % BOARD_SIZE;
+
+    if (!isValidMove(row, col, WHITE)) {
+        printf("AI error: Invalid move.\n");
+        return;
+    }
+
+    board[row][col] = WHITE;
+    flipStones(row, col, WHITE);
+    ("AI's move board[row col]: %d, %d\n", row + 1, col + 1);
+}
+
+// Plays the game
+void playGame(int simulations) {
+    initializeBoard();
     printBoard();
 
-    // 結果の表示
-    int blackCount, whiteCount;
-    countStones(&blackCount, &whiteCount);
-    printf("Black: %d\nWhite: %d\n", blackCount, whiteCount);
-    if (blackCount > whiteCount)
+    while (true) {
+        // User's turn
+        userTurn();
+        printBoard();
+
+        // Count the stones
+        int blackCount, whiteCount;
+        countStones(&blackCount, &whiteCount);
+        printf("Black: %d, White: %d\n", blackCount, whiteCount);
+
+        // AI's turn
+        aiTurn(simulations);
+        printBoard();
+
+        // Count the stones
+        countStones(&blackCount, &whiteCount);
+        printf("Black: %d, White: %d\n", blackCount, whiteCount);
+    }
+}
+
+// Prints the result of the game
+void printResult(int blackCount, int whiteCount) {
+    printf("Game over!\n");
+    printf("Black: %d, White: %d\n", blackCount, whiteCount);
+    if (blackCount > whiteCount) {
         printf("Black wins!\n");
-    else if (whiteCount > blackCount)
+    } else if (whiteCount > blackCount) {
         printf("White wins!\n");
-    else
+    } else {
         printf("It's a tie!\n");
+    }
+}
+
+// Switches the player
+int switchPlayer(int currentPlayer) {
+    return (currentPlayer == BLACK) ? WHITE : BLACK;
 }
 
 int main() {
-    int simulations = 1;
-
-    initializeBoard();
+    int simulations = 1;  // Number of simulations for the AI
     playGame(simulations);
-
     return 0;
 }
